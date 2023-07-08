@@ -358,54 +358,73 @@ ORDER BY a.date DESC, a.time DESC';
         $filters = array_merge([$to_address], self::return_user_filters($username));
         if (QUARANTINE_FILTERS_COMBINED === false) {
             $sendResult = false;
-            foreach ($filters as $filter) {
-                if ('D' === $type) {
-                    $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;
-                    $list_for = $filter_domain;
-                } elseif ('A' === $type) {
-                    $filter_domain = '';
-                    $filter = '';
-                    $list_for = '';
-                } else {
-                    $filter_domain = $to_domain;
-                    $list_for = $filter;
-                }
+
+            if ('A' === $type) {
+                $list_for = gethostname();
 
                 self::dbg(" ==== Building list for $list_for");
-                $quarantined = self::return_quarantine_list_array($filter, $filter_domain);
+                $quarantined = self::return_quarantine_list_array('', '');
                 self::dbg(' ==== Found ' . count($quarantined) . ' quarantined e-mails');
+
                 if (true === $sendEmptyReports || count($quarantined) > 0) {
                     $sendResult = self::send_quarantine_email($email, $list_for, $quarantined);
                 }
                 unset($quarantined);
             }
+            else {
+                foreach ($filters as $filter) {
+                    if ('D' === $type) {
+                        $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;
+                        $list_for = $filter_domain;
+                    } else {
+                        $filter_domain = $to_domain;
+                        $list_for = $filter;
+                    }
+
+                    self::dbg(" ==== Building list for $list_for");
+                    $quarantined = self::return_quarantine_list_array($filter, $filter_domain);
+                    self::dbg(' ==== Found ' . count($quarantined) . ' quarantined e-mails');
+				
+                    if (true === $sendEmptyReports || count($quarantined) > 0) {
+                        $sendResult = self::send_quarantine_email($email, $list_for, $quarantined);
+                    }
+                    unset($quarantined);
+                }
+            }
 
             return $sendResult;
         } else {
-            //combined
+            // combined
             $quarantine_list = [];
             $quarantined = [];
 
-            foreach ($filters as $filter) {
-                if ('D' === $type) {
-                    $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;
-                    $list_for = $filter_domain;
-                } elseif ('A' === $type) {
-                    $filter_domain = '';
-                    $filter = '';
-                    $list_for = '';
-                } else {
-                    $filter_domain = $to_domain;
-                    $list_for = $filter;
-                }
+            if ('A' === $type) {
+                $list_for = gethostname();
 
-                $quarantine_list[] = $list_for;
                 self::dbg(" ==== Building list for $list_for");
-                $tmp_quarantined = self::return_quarantine_list_array($filter, $filter_domain);
+                $quarantined[] = self::return_quarantine_list_array('', '');
+                $quarantine_list[] = $list_for;
 
-                self::dbg(' ==== Found ' . count($tmp_quarantined) . ' quarantined e-mails');
-                if (count($tmp_quarantined) > 0) {
-                    $quarantined[] = $tmp_quarantined;
+                self::dbg(' ==== Found ' . count($quarantined[0]) . ' quarantined e-mails');
+            }
+            else {
+                foreach ($filters as $filter) {
+                    if ('D' === $type) {
+                        $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;
+                        $list_for = $filter_domain;
+                    } else {
+                        $filter_domain = $to_domain;
+                        $list_for = $filter;
+                    }
+
+                    self::dbg(" ==== Building list for $list_for");
+                    $tmp_quarantined = self::return_quarantine_list_array($filter, $filter_domain);
+
+                    self::dbg(' ==== Found ' . count($tmp_quarantined) . ' quarantined e-mails');
+                    if (count($tmp_quarantined) > 0) {
+                        $quarantined[] = $tmp_quarantined;
+                        $quarantine_list[] = $list_for;
+                    }
                 }
             }
             if (count($quarantined) > 0) {
@@ -520,20 +539,20 @@ ORDER BY a.date DESC, a.time DESC';
      */
     private static function check_auto_release($qitem)
     {
-        //function checks if message already has an autorelease entry
+        // function checks if message already has an autorelease entry
         $id = $qitem['id'];
         $result = dbquery("SELECT * FROM autorelease WHERE msg_id = '$id'", false);
         if (!$result) {
             self::dbg(' === Error checking if msg_id already exists.....skipping....');
         } else {
             if (0 === $result->num_rows) {
-                return false; //msg_id not found,
+                return false; // msg_id not found,
             }
 
             if (1 === $result->num_rows) {
                 $row = $result->fetch_array();
 
-                return $row['uid']; //return the stored uid
+                return $row['uid']; // return the stored uid
             }
 
             self::dbg('=== Error, msg_id exists more than once....generating new one...');
@@ -558,10 +577,10 @@ ORDER BY a.date DESC, a.time DESC';
         $t1 = '';
         // Build the quarantine list for this recipient
         foreach ($quarantined as $qitem) {
-            //Check if auto-release is enabled
+            // Check if auto-release is enabled
             $links = '<a href="' . MAILWATCH_HOSTURL . '/viewmail.php?token=' . $qitem['token'] . '&id=' . $qitem['id'] . '">' . __('view61') . '</a>';
             if (defined('AUTO_RELEASE') && AUTO_RELEASE === true) {
-                //Check if email already has an autorelease entry
+                // Check if email already has an autorelease entry
                 $exists = self::check_auto_release($qitem);
                 if (!$exists) {
                     $qitem['rand'] = get_random_string(10);

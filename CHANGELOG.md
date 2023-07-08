@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 1.2.20
+### Improvements
+- Better compatibility with MailScanner milter relay (#1267, #1271)
+- Added filters to search for released and learned mails (#1269)
+- Improved quarantine report (#1270)
+- Improved service status display (#1263)
+- Better compatibility with PHP 8.1
+
+### Fixes
+- Wrap words in the message details, message headers row (#1258)
+- Fix status message after mailscanner reload (#1261)
+- Corrected and improved german translation (#1262)
+
 ## 1.2.19
 ### Improvements
 - More performant and reliable milter queue relay parsing

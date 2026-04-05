@@ -39,7 +39,7 @@ if ('A' !== $_SESSION['user_type']) {
     $mailwatch_version = mailwatch_version();
     $mailscanner_version = get_conf_var('MailScannerVersionNumber');
     $php_version = PHP_VERSION;
-    $mysql_version = database::mysqli_result(dbquery('SELECT VERSION()'), 0);
+    $mysql_version = database::getDatabaseVersion();
     $geoip_version = false;
     $geoip_database_file = __DIR__ . '/temp/GeoLite2-Country.mmdb';
     if (file_exists($geoip_database_file)) {
@@ -79,12 +79,19 @@ if ('A' !== $_SESSION['user_type']) {
                 $vars[$line[0]] = $line[1];
             }
         }
+
+        echo __('systemos11') . ' ';
+        $systemos = 'unknown linux';
         if (isset($vars['ID']) && in_array(strtolower($vars['ID']), ['centos', 'debian'], true)) {
-            echo __('systemos11') . ' ' . $vars['PRETTY_NAME'] . '<br>' . "\n";
+            $systemos = $vars['PRETTY_NAME'];
         }
-        if (isset($vars['ID']) && 'ubuntu' === strtolower($vars['ID'])) {
-            echo __('systemos11') . ' ' . $vars['NAME'] . ' ' . $vars['VERSION'] . '<br>' . "\n";
+        else if (isset($vars['ID']) && 'ubuntu' === strtolower($vars['ID'])) {
+            $systemos = $vars['NAME'] . ' ' . $vars['VERSION'];
         }
+        else if (isset($vars['ID'])) {
+            $systemos = $vars['ID'];
+        }
+        echo $systemos . '<br>' . "\n";
     }
     if ('freebsd' === strtolower(PHP_OS)) {
         echo __('systemos11') . ' ' . PHP_OS . ' ' . php_uname('r') . ' ' . php_uname('m') . '<br>' . "\n";

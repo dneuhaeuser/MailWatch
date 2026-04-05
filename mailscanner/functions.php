@@ -33,22 +33,31 @@ if (PHP_VERSION_ID < 50300) {
     error_reporting(E_ALL ^ E_DEPRECATED ^ E_STRICT);
 }
 
+if (extension_loaded('uopz') && !(ini_get('uopz.disable') || ini_get('uopz.exit'))) {
+    // uopz works at opcode level and disables exit calls
+    if (function_exists('uopz_allow_exit')) {
+        @uopz_allow_exit(true);
+    } else {
+        throw new \RuntimeException('The uopz extension ignores exit calls and breaks this application. Disable the extension or set "uopz.exit" to TRUE');
+    }
+}
+
 // Read in MailWatch configuration file
-if (!is_readable(__DIR__ . '/conf.php')) {
+if (!file_exists(__DIR__ . '/conf.php') || !is_readable(__DIR__ . '/conf.php')) {
     exit(__('cannot_read_conf'));
 }
 require_once __DIR__ . '/conf.php';
 require_once __DIR__ . '/database.php';
 
 // more secure session cookies
-ini_set('session.use_cookies', 1);
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-ini_set('session.use_trans_sid', 0);
+ini_set('session.use_cookies', '1');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.use_only_cookies', '1');
+ini_set('session.use_trans_sid', '0');
 
 $session_cookie_secure = false;
 if (SSL_ONLY === true) {
-    ini_set('session.cookie_secure', 1);
+    ini_set('session.cookie_secure', '1');
     $session_cookie_secure = true;
 }
 
@@ -111,12 +120,15 @@ set_include_path(
 // ForceUTF8
 require_once __DIR__ . '/lib/ForceUTF8/Encoding.php';
 
-// HTLMPurifier
+// HTMLPurifier
 require_once __DIR__ . '/lib/htmlpurifier/HTMLPurifier.standalone.php';
 
 // Enforce SSL if SSL_ONLY=true
 if (PHP_SAPI !== 'cli' && SSL_ONLY && !empty($_SERVER['PHP_SELF'])) {
-    if (!isset($_SERVER['HTTPS']) || 'on' !== $_SERVER['HTTPS']) {
+    // Is the connection secure?
+    $is_ssl = !empty($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] === '1');
+    // Force SSL with a redirect to https:// if not already using SSL
+    if (!$is_ssl) {
         header('Location: https://' . sanitizeInput($_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']));
         exit;
     }
@@ -154,8 +166,7 @@ function getVirusRegex($scanner = null)
      scanner as your primary scanner - this should be the scanner you wish to
      report against.  It defaults to the first scanner found in MailScanner.conf.
 
-     Please submit any new regular expressions to the MailWatch mailing-list or
-     open an issue on GitHub.
+     Please submit any new regular expressions by opening an issue on GitHub.
 
      If you are running MailWatch in DISTRIBUTED_MODE or you wish to override the
      selection of the regular expression - you will need to add one of the following
@@ -177,14 +188,18 @@ function getVirusRegex($scanner = null)
 
     $regex = null;
     switch ($scanner) {
-        case 'none':
-            $regex = '/^Dummy$/';
+        case 'antivir':
+            $regex = '/ALERT: \[(?P<virus>\S+) \S+\]/';
             break;
-        case 'sophos':
-            $regex = '/>>> Virus \'(?P<virus>\S+)\' found in (?P<file>.*)/';
+        case 'avast':
+        case 'avastd':
+            $regex = '/Avast: found (?P<virus>.+) in (?P<file>.*)/';
             break;
-        case 'sophossavi':
-            $regex = '/(?P<file>\S+) was infected by (?P<virus>\S+)/';
+        case 'avg':
+            $regex = '/Found virus (?P<virus>\S+) in file (?P<file>\S+)/';
+            break;
+        case 'bitdefender':
+            $regex = '/(?P<file>\S+) Found virus (?P<virus>\S+)/';
             break;
         case 'clamav':
             $regex = '/(?P<file>.+) contains (?P<virus>\S+)/';
@@ -193,49 +208,52 @@ function getVirusRegex($scanner = null)
         case 'clamavmodule':
             $regex = '/(?P<file>.+) was infected: (?P<virus>\S+)/';
             break;
+        case 'esets':
+        case 'esetsefs':
+            $regex = '/Esets: found (?P<virus>\S+) in (?P<file>\S+)/';
+            break;
+        case 'etrust':
+            $regex = '/(?P<file>\S+) is infected by virus: (?P<virus>\S+)/';
+            break;
         case 'f-prot':
         case 'f-prot-6':
         case 'f-protd-6':
             $regex = '/(?P<file>.+) Infection: (?P<virus>\S+)/';
             break;
-        case 'mcafee':
-        case 'mcafee6':
-            $regex = '/(?P<file>.+) Found the (?P<virus>\S+) virus !!!/';
-            break;
         case 'f-secure':
         case 'f-secure-12':
             $regex = '/(?P<file>.+) Infected: (?P<virus>\S+)/';
             break;
-        case 'avg':
-        case 'norman':
-        case 'trend':
-            $regex = '/Found virus (?P<virus>\S+) in file (?P<file>\S+)/';
-            break;
-        case 'bitdefender':
-            $regex = '/(?P<file>\S+) Found virus (?P<virus>\S+)/';
-            break;
         case 'kaspersky-4.5':
+        case 'kaspersky':
+        case 'kse':
             $regex = '/(?P<file>.+) INFECTED (?P<virus>\S+)/';
             break;
-        case 'etrust':
-            $regex = '/(?P<file>\S+) is infected by virus: (?P<virus>\S+)/';
+        case 'mcafee':
+        case 'mcafee6':
+            $regex = '/(?P<file>.+) Found the (?P<virus>\S+) virus !!!/';
+            break;
+        case 'none':
+            $regex = '/^Dummy$/';
+            break;
+        case 'norman':
+            $regex = '/Found virus (?P<virus>\S+) in file (?P<file>\S+)/';
             break;
         case 'nod32-1.99':
             $regex = '/Found virus (?P<virus>\S+) in (?P<file>\S+)/';
             break;
-        case 'antivir':
-            $regex = '/ALERT: \[(?P<virus>\S+) \S+\]/';
+        case 'sophos':
+            $regex = '/>>> Virus \'(?P<virus>\S+)\' found in (?P<file>.*)/';
             break;
-        case 'avast':
-            $regex = '/Avast: found (?P<virus>.+) in (?P<file>.*)/';
+        case 'sophossavi':
+            $regex = '/(?P<file>\S+) was infected by (?P<virus>\S+)/';
             break;
-        case 'esets':
-        case 'esetsefs':
-            $regex = '/Esets: found (?P<virus>\S+) in (?P<file>\S+)/';
+        case 'trend':
+            $regex = '/Found virus (?P<virus>\S+) in file (?P<file>\S+)/';
             break;
-            // default:
-            // die("<B>" . __('dieerror03') . "</B><BR>\n&nbsp;" . __('diescanner03' . "\n");
-            // break;
+        // default:
+        // die("<B>" . __('dieerror03') . "</B><BR>\n&nbsp;" . __('diescanner03' . "\n");
+        // break;
     }
 
     return $regex;
@@ -249,7 +267,7 @@ function getVirusRegex($scanner = null)
  */
 function mailwatch_version()
 {
-    return '1.2.20';
+    return '1.2.25';
 }
 
 /**
@@ -461,7 +479,7 @@ function printServiceStatus()
             exec('ps ax | grep postfix.*master | grep -v grep', $masterproc);
             if (count($masterproc) > 0) {
                 $running = $yes;
-                $masterpid = explode(" ", trim($masterproc[0]));
+                $masterpid = explode(' ', trim($masterproc[0]));
                 $childproc = [];
                 exec(sprintf('ps ax -j | grep %s | grep -v grep', $masterpid[0]), $childproc);
                 $procs = count($childproc) . ' ' . __('procs03');
@@ -634,7 +652,7 @@ function printMTAQueue()
             echo '    <tr><td colspan="2"><a href="postfixmailq.php">Postfix ' . __('inbound03') . '</a></td><td align="right">' . $inq2 . '</td></tr>' . "\n";
             echo '    <tr><td colspan="2"><a href="postfixmailq.php">Postfix ' . __('outbound03') . '</a></td><td align="right">' . $outq2 . '</td></tr>' . "\n";
         }
-    // Else use MAILQ from conf.php which is for Sendmail or Exim
+        // Else use MAILQ from conf.php which is for Sendmail or Exim
     } elseif (defined('MAILQ') && MAILQ === true && !DISTRIBUTED_SETUP) {
         if ('exim' === get_conf_var('MTA')) {
             $inq = exec('sudo ' . EXIM_QUEUE_IN . ' 2>&1');
@@ -1091,6 +1109,10 @@ function dbquerydebug($link, $sql)
 function sanitizeInput($string)
 {
     $config = HTMLPurifier_Config::createDefault();
+    $cachePath = rtrim(sys_get_temp_dir(), '/') . '/MailWatch';
+    if (is_dir($cachePath) || mkdir($cachePath)) {
+        $config->set('Cache.SerializerPath', $cachePath);
+    }
     $purifier = new HTMLPurifier($config);
 
     return $purifier->purify($string);
@@ -1546,7 +1568,13 @@ function get_disks()
             $mounted_fs = file('/proc/mounts');
             foreach ($mounted_fs as $fs_row) {
                 $drive = preg_split("/[\s]+/", $fs_row);
-                if ((0 === strpos($drive[0], '/dev/')) && (false === stripos($drive[1], '/chroot/'))) {
+                if (
+                    (0 === strpos($drive[0], '/dev/'))
+                    && (
+                        false === stripos($drive[1], '/chroot/')
+                        && false === stripos($drive[1], '/snap/')
+                    )
+                ) {
                     $temp_drive['device'] = $drive[0];
                     $temp_drive['mountpoint'] = $drive[1];
                     $disks[] = $temp_drive;
@@ -1559,7 +1587,14 @@ function get_disks()
             $data = explode("\n", $data);
             foreach ($data as $disk) {
                 $drive = preg_split("/[\s]+/", $disk);
-                if ((0 === strpos($drive[0], '/dev/')) && (false === stripos($drive[2], '/chroot/'))) {
+                if (
+                    (0 === strpos($drive[0], '/dev/'))
+                    && (
+                        false === stripos($drive[2], '/chroot/')
+                        && (false === stripos($drive[2], '/snapd/')
+                        )
+                    )
+                ) {
                     $temp_drive['device'] = $drive[0];
                     $temp_drive['mountpoint'] = $drive[2];
                     $disks[] = $temp_drive;
@@ -1686,7 +1721,7 @@ function get_default_ruleset_value($file)
  * @param string $name
  * @param bool   $force
  *
- * @return bool
+ * @return mixed
  */
 function get_conf_var($name, $force = false)
 {
@@ -1726,6 +1761,10 @@ function get_conf_var($name, $force = false)
  */
 function parse_conf_dir($conf_dir)
 {
+    if (!realpath($conf_dir)) {
+        $conf_dir = rtrim(MS_CONFIG_DIR, '/') . '/' . ltrim($conf_dir, '/');
+    }
+
     $array_output1 = [];
     if ($dh = opendir($conf_dir)) {
         while (($file = readdir($dh)) !== false) {
@@ -1740,8 +1779,8 @@ function parse_conf_dir($conf_dir)
                 }
             }
         }
+        closedir($dh);
     }
-    closedir($dh);
 
     return $array_output1;
 }
@@ -2906,6 +2945,35 @@ function address_filter_sql($addresses, $type)
 }
 
 /**
+ * Constructs an LDAP URI using the given host and port.
+ *
+ * If the host doesn't already include a protocol, it will be prefixed with "ldaps://" when the port is "636",
+ * otherwise with "ldap://". If the URI doesn't already contain a port, the port is appended.
+ *
+ * @param string     $host The LDAP host.
+ * @param int|string $port The LDAP port.
+ * @return string The constructed LDAP URI.
+ */
+function ldap_build_uri($host, $port) {
+    // Convert the port to a string immediately
+    $portStr = (string)$port;
+
+    // If the host doesn't already start with "ldap://" or "ldaps://", prepend the appropriate protocol
+    if (stripos($host, 'ldap://') !== 0 && stripos($host, 'ldaps://') !== 0) {
+        $protocol = ($portStr === '636') ? 'ldaps://' : 'ldap://';
+        $host = $protocol . $host;
+    }
+
+    // Use parse_url to check if the URI already includes a port
+    $parsedUrl = parse_url($host);
+    if ($portStr && !isset($parsedUrl['port'])) {
+        $host .= ':' . $portStr;
+    }
+
+    return $host;
+}
+
+/**
  * @param string $username
  * @param string $password
  *
@@ -2915,7 +2983,8 @@ function ldap_authenticate($username, $password)
 {
     $username = ldap_escape(strtolower($username), '', LDAP_ESCAPE_DN);
     if ('' !== $username && '' !== $password) {
-        $ds = ldap_connect(LDAP_HOST, LDAP_PORT) or exit(__('ldpaauth103') . ' ' . LDAP_HOST);
+        $ldap_uri = ldap_build_uri(LDAP_HOST, LDAP_PORT);
+        $ds = ldap_connect($ldap_uri) or exit(__('ldpaauth103') . ' ' . $ldap_uri);
 
         $ldap_protocol_version = 3;
         if (defined('LDAP_PROTOCOL_VERSION')) {
@@ -2981,6 +3050,9 @@ function ldap_authenticate($username, $password)
                 }
                 if (defined('LDAP_BIND_SUFFIX')) {
                     $user .= LDAP_BIND_SUFFIX;
+                }
+                if (!defined('LDAP_BIND_PREFIX') && !defined('LDAP_BIND_SUFFIX')) {
+                    $user=$result[0]['dn'];
                 }
 
                 if (!isset($result[0][LDAP_EMAIL_FIELD])) {
@@ -3133,8 +3205,9 @@ function ldap_get_conf_var($entry)
     // Translate MailScanner.conf vars to internal
     $entry = translate_etoi($entry);
 
-    $lh = ldap_connect(LDAP_HOST, LDAP_PORT)
-    or exit(__('ldapgetconfvar103') . ' ' . LDAP_HOST . "\n");
+    $ldap_uri = ldap_build_uri(LDAP_HOST, LDAP_PORT);
+    $lh = ldap_connect($ldap_uri)
+    or exit(__('ldapgetconfvar103') . ' ' . $ldap_uri . "\n");
 
     @ldap_bind($lh)
     or exit(__('ldapgetconfvar203') . "\n");
@@ -3173,8 +3246,9 @@ function ldap_get_conf_truefalse($entry)
     // Translate MailScanner.conf vars to internal
     $entry = translate_etoi($entry);
 
-    $lh = ldap_connect(LDAP_HOST, LDAP_PORT)
-    or exit(__('ldapgetconfvar103') . ' ' . LDAP_HOST . "\n");
+    $ldap_uri = ldap_build_uri(LDAP_HOST, LDAP_PORT);
+    $lh = ldap_connect($ldap_uri)
+    or exit(__('ldapgetconfvar103') . ' ' . $ldap_uri . "\n");
 
     @ldap_bind($lh)
     or exit(__('ldapgetconfvar203') . "\n");
@@ -3217,14 +3291,13 @@ function imap_authenticate($username, $password)
 
     if (
         (
-            !defined('IMAP_USERNAME_FULL_EMAIL') &&
-            !filter_var($username, FILTER_VALIDATE_EMAIL)
+            !defined('IMAP_USERNAME_FULL_EMAIL')
+            && !filter_var($username, FILTER_VALIDATE_EMAIL)
         )
-        ||
-        (
-            defined('IMAP_USERNAME_FULL_EMAIL') &&
-            IMAP_USERNAME_FULL_EMAIL === true &&
-            !filter_var($username, FILTER_VALIDATE_EMAIL)
+        || (
+            defined('IMAP_USERNAME_FULL_EMAIL')
+            && IMAP_USERNAME_FULL_EMAIL === true
+            && !filter_var($username, FILTER_VALIDATE_EMAIL)
         )
     ) {
         // user has no mail but it is required for mailwatch
@@ -3234,12 +3307,12 @@ function imap_authenticate($username, $password)
     if ('' !== $username && '' !== $password) {
         $imapUsername = $username;
         if (
-            defined('IMAP_USERNAME_FULL_EMAIL') &&
-            IMAP_USERNAME_FULL_EMAIL === false
+            defined('IMAP_USERNAME_FULL_EMAIL')
+            && IMAP_USERNAME_FULL_EMAIL === false
         ) {
             $imapUsername = substr($username, 0, strrpos($username, '@'));
         }
-        $mbox = imap_open(IMAP_HOST, $imapUsername, $password, null, 0);
+        $mbox = imap_open(IMAP_HOST, $imapUsername, $password, \OP_READONLY, 0);
 
         if (false === $mbox) {
             // auth faild
@@ -3507,7 +3580,12 @@ SELECT
                     $quarantined[$count]['to'] = $row->to_address;
                     $quarantined[$count]['file'] = $f;
                     $file = escapeshellarg($quarantine . '/' . $f);
-                    $quarantined[$count]['type'] = ltrim(rtrim(shell_exec('/usr/bin/file -bi ' . $file)));
+                    $type = ltrim(rtrim(shell_exec('/usr/bin/file -bi ' . $file)));
+                    // In some cases file returns text/x-mail instead of message/rfc822
+                    if (preg_match('!^text/x-mail!', $type)) {
+                        $type = 'message/rfc822';
+                    }
+                    $quarantined[$count]['type'] = $type;
                     $quarantined[$count]['path'] = $quarantine . '/' . $f;
                     $quarantined[$count]['md5'] = md5($quarantine . '/' . $f);
                     $quarantined[$count]['dangerous'] = $infected;
@@ -3554,6 +3632,18 @@ function quarantine_release($list, $num, $to, $rpc_only = false)
 
     $new = quarantine_list_items($list[0]['msgid']);
     $list = &$new;
+
+    // Check for [-1], indicating just to release message itself, regardless of its item position
+    if ($num[0] === -1) {
+        $num = [0];
+        // Locate message in items
+        for ($index=0;$index<count($list);$index++) {
+            if (preg_match('/message\/rfc822/', $list[$index]['type'])) {
+                $num = [$index];
+                break;
+            }
+        }
+    }
 
     if (!$rpc_only && is_local($list[0]['host'])) {
         if (!QUARANTINE_USE_SENDMAIL) {
@@ -3677,6 +3767,19 @@ function quarantine_learn($list, $num, $type, $rpc_only = false)
     }
     $new = quarantine_list_items($list[0]['msgid']);
     $list = &$new;
+
+    // Check for [-1], indicating just to release message itself, regardless of its item position
+    if ($num[0] === -1) {
+        $num = [0];
+        // Locate message in items
+        for ($index=0;$index<count($list);$index++) {
+            if (preg_match('/message\/rfc822/', $list[$index]['type'])) {
+                $num = [$index];
+                break;
+            }
+        }
+    }
+
     $status = [];
     if (!$rpc_only && is_local($list[0]['host'])) {
         // prevent sa-learn process blocking complete apache server
@@ -3992,12 +4095,21 @@ function get_virus_conf($scanner)
  */
 function return_quarantine_dates()
 {
-    $array = [];
-    for ($d = 0; $d < QUARANTINE_DAYS_TO_KEEP; ++$d) {
-        $array[] = date('Ymd', mktime(0, 0, 0, date('m'), date('d') - $d, date('Y')));
+    // If QUARANTINE_DAYS_TO_KEEP_NONSPAM is defined, use the larger of the two constants.
+    // Otherwise, just use QUARANTINE_DAYS_TO_KEEP.
+    $days = defined('QUARANTINE_DAYS_TO_KEEP_NONSPAM') && QUARANTINE_DAYS_TO_KEEP_NONSPAM > QUARANTINE_DAYS_TO_KEEP
+        ? QUARANTINE_DAYS_TO_KEEP_NONSPAM
+        : QUARANTINE_DAYS_TO_KEEP;
+
+    $dates = [];
+    $now = new DateTime();
+    for ($d = 0; $d < $days; ++$d) {
+        $date = clone $now;  // Clone is used to prevent modifying original DateTime
+        $date->sub(new DateInterval("P{$d}D"));
+        $dates[] = $date->format('Ymd');
     }
 
-    return $array;
+    return $dates;
 }
 
 /**
@@ -4077,21 +4189,19 @@ function is_rpc_client_allowed()
 function xmlrpc_wrapper($host, $msg)
 {
     $method = 'http';
-    // Work out port
+
     if (defined('SSL_ONLY') && SSL_ONLY) {
-        $port = 443;
         $method = 'https';
+        $port = defined('RPC_PORT') ? RPC_PORT : 443;
+    } elseif (defined('RPC_SSL') && RPC_SSL) {
+        $method = 'https';
+        $port = defined('RPC_PORT') ? RPC_PORT : 443;
     } elseif (defined('RPC_PORT')) {
         $port = RPC_PORT;
-        if (defined('RPC_SSL') && RPC_SSL) {
-            $method = 'https';
-            if (!defined('RPC_PORT')) {
-                $port = 443;
-            }
-        }
     } else {
         $port = 80;
     }
+
     $client = new xmlrpc_client(constant('RPC_RELATIVE_PATH') . '/rpcserver.php', $host, $port);
     if (DEBUG) {
         $client->setDebug(1);
@@ -4267,6 +4377,8 @@ function checkConfVariables()
         'IMAP_HOST' => ['description' => 'IMAP host to be used for user authentication'],
         'IMAP_AUTOCREATE_VALID_USER' => ['description' => 'enable to autorcreate user from valid imap login'],
         'MAXMIND_LICENSE_KEY' => ['description' => 'needed to download MaxMind GeoLite2 data'],
+        'MAXMIND_ACCOUNT_ID' => ['description' => 'needed to download MaxMind GeoLite2 data'],
+        'QUARANTINE_DAYS_TO_KEEP_NONSPAM' => ['description' => 'to have quarantine keeping days independently configured for nonspam mails'],
     ];
 
     $results = [];
@@ -4432,7 +4544,7 @@ function ip_in_range($ip, $net = false, $privateLocal = false)
 }
 
 /**
- * @param string $input
+ * @param string|int|float $input
  * @param string $type
  *
  * @return string|false
@@ -4477,8 +4589,8 @@ function deepSanitizeInput($input, $type)
 }
 
 /**
- * @param string|bool $input
- * @param string      $type
+ * @param string|int|float|bool $input
+ * @param string $type
  *
  * @return bool
  */
@@ -4534,7 +4646,7 @@ function validateInput($input, $type)
             break;
         case 'msgid':
             if (preg_match(
-                '/^([A-F0-9]{7,20}\.[A-F0-9]{5}|[0-9B-DF-HJ-NP-TV-Zb-df-hj-np-tv-z]{8,20}|[0-9B-DF-HJ-NP-TV-Zb-df-hj-np-tv-z.]{8,20}\.[A-F0-9]{5}|[0-9A-Za-z]{6}-[A-Za-z0-9]{6}-[A-Za-z0-9]{2}|[0-9A-Za-z]{12,15})$/',
+                '/^([A-F0-9]{7,20}\.[A-F0-9]{5}|[0-9B-DF-HJ-NP-TV-Zb-df-hj-np-tv-z]{8,20}|[0-9B-DF-HJ-NP-TV-Zb-df-hj-np-tv-z.]{8,20}\.[A-F0-9]{5}|[0-9A-Za-z]{6}-[A-Za-z0-9]{6}-[A-Za-z0-9]{2}|[0-9A-Za-z]{6}-[A-Za-z0-9]{11}-[A-Za-z0-9]{4}|[0-9A-Za-z]{12,15})$/',
                 $input
             )) {
                 return true;
@@ -4626,7 +4738,7 @@ function validateInput($input, $type)
             }
             break;
         case 'maxmind':
-            if (preg_match('/^([0-9A-Za-z]{12}|[0-9A-Za-z]{16})$/', $input)) {
+            if (preg_match('/^([0-9A-Za-z]{12}|[0-9A-Za-z]{16}|[0-9A-Za-z_]{40})$/', $input)) {
                 return true;
             }
             break;
@@ -4744,7 +4856,7 @@ function updateLoginExpiry($myusername)
         } else {
             $expiry_val = (time() + 600);
         }
-    // If set, use the individual timeout
+        // If set, use the individual timeout
     } elseif ('0' === $login_timeout) {
         $expiry_val = 0;
     } else {

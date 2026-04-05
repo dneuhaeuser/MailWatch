@@ -32,16 +32,16 @@
 // Debug messages
 define('DEBUG', false);
 
-// Define language (de, en, es-419, fr, it, ja, nl, pt_br);
+// Define language (de, en, es-419, fr, it, ja, nl, pt_br, tr);
 define('LANG', 'en');
 
 // Optional: If USER_SELECTABLE_LANG is defined and the value contains more than one language then the user gets a dropdown
 // in the gui to change the language of his browser. The selectable languages are defined as a comma separated list.
-define('USER_SELECTABLE_LANG', 'de,en,es-419,fr,it,ja,nl,pt_br');
+define('USER_SELECTABLE_LANG', 'de,en,es-419,fr,it,ja,nl,pt_br,tr');
 
-// Session Handling - conflicts can exist when the your environment makes use of multiple php sessions on the same server
-// to resolve this, uncomment the following option.  See https://github.com/mailwatch/MailWatch/issues/730 for more info
-// A valid session name may consists of digits, letters A to Z (both upper and lower case), comma and dash
+// Session Handling - conflicts can exist when your environment makes use of multiple php sessions on the same server
+// to resolve this, uncomment the following option. See https://github.com/mailwatch/MailWatch/issues/730 for more info
+// A valid session name may consist of digits, letters A to Z (both upper and lower case), comma and dash
 //define('SESSION_NAME', 'MailWatch');
 
 // Session Timeout - Sets the global session timeout value, default is 600 sec (10 minutes) if not defined
@@ -53,6 +53,7 @@ define('SESSION_TIMEOUT', 600);
 // A free license key from MaxMind is required to download GeoLite2 data
 // https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases/
 // define('MAXMIND_LICENSE_KEY', 'mylicensekey');
+// define('MAXMIND_ACCOUNT_ID', 'myaccountid');
 
 // Database settings
 //
@@ -71,8 +72,8 @@ define('DB_DSN', DB_TYPE . '://' . DB_USER . ':' . DB_PASS . '@' . DB_HOST . ':'
 
 // LDAP settings for authentication
 define('USE_LDAP', false);
-define('LDAP_HOST', 'server.example.com');
-define('LDAP_PORT', '389');
+define('LDAP_HOST', 'ldap://server.example.com'); // Host or LDAP Uri, use ldaps:// for SSL connection
+define('LDAP_PORT', '389'); // LDAP port number
 define('LDAP_DN', 'DC=example,DC=com');
 define('LDAP_USER', 'LDAPProxy@example.com'); // If no email set: cn=admin,dc=example,dc=com
 define('LDAP_PASS', 'secret');
@@ -96,7 +97,7 @@ define('IMAP_AUTOCREATE_VALID_USER', false); // Set to true to autocreate a vali
 define('IMAP_USERNAME_FULL_EMAIL', true); // Set to false to login to imap server using any kind of username
 
 // Set Time Zone
-// See http://php.net/manual/en/timezones.php for a list of usable timezones.
+// See https://php.net/manual/en/timezones.php for a list of usable timezones.
 define('TIME_ZONE', 'America/New_York');
 // Date/Time settings
 define('DATE_FORMAT', '%d/%m/%y');
@@ -156,6 +157,14 @@ define('RECORD_DAYS_TO_KEEP', 60);
 // Define how many days to audit logs to keep.
 define('AUDIT_DAYS_TO_KEEP', 60);
 
+// Database cleanup settings (used by mailwatch_db_clean.php)
+// Number of rows to delete per batch (reduces table locking on large databases)
+// Set to 0 to disable batching and delete all rows in a single query
+define('DB_CLEAN_BATCH_SIZE', 10000);
+// Run OPTIMIZE TABLE after cleanup (can be slow on large InnoDB tables)
+// Set to false if you run OPTIMIZE separately or don't need it
+define('DB_CLEAN_OPTIMIZE', true);
+
 // Show Software Version tab (only Admins can see it).
 define('SHOW_SFVERSION', true);
 
@@ -182,6 +191,7 @@ define('MAILWATCH_HOSTURL', 'https://' . rtrim(gethostname()) . '/mailscanner');
 // the clean.quarantine script provided with MailScanner.
 define('QUARANTINE_USE_FLAG', true);
 define('QUARANTINE_DAYS_TO_KEEP', 30);
+define('QUARANTINE_DAYS_TO_KEEP_NONSPAM', 30);
 //Set QUARANTINE_FILTERS_COMBINED to true to combine quarantine report into a single report when user filters are present
 define('QUARANTINE_FILTERS_COMBINED', false);
 define('QUARANTINE_REPORT_FROM_NAME', 'MailWatch for MailScanner');
@@ -298,6 +308,9 @@ define('HIDE_NON_SPAM', false);
 // Hide Unknown Mail from quarantine reports
 define('HIDE_UNKNOWN', false);
 
+// Apply hide options above also to quarantine page
+define('HIDE_APPLY_QUARANTINE', false);
+
 // Quarantine Auto Release
 // Set true to allow auto release of quarantined items from quarantine report.
 define('AUTO_RELEASE', false);
@@ -325,4 +338,3 @@ define('STATUSGRAPH_INTERVAL', 60);
 //define('ENABLE_SUPER_DOMAIN_ADMINS',true);
 //Allow the username of domain admins and normal users to not be in mail format (not recommended, only for backward compatibility)
 //define('ALLOW_NO_USER_DOMAIN',true);
-

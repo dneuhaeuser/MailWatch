@@ -77,7 +77,7 @@ return [
     'hscospam03' => 'High Score Spam:',
     'hscomcp03' => 'High Score MCP:',
     'recentmessages03' => 'Recent Messages',
-    'lists03' => 'Black and White Lists',
+    'lists03' => 'Block and Allow Lists',
     'quarantine03' => 'Quarantine',
     'datetime03' => 'Date/Time',
     'from03' => 'From',
@@ -383,7 +383,7 @@ return [
     'remove09' => 'Remove',
     'reports09' => 'Reports',
     'released09' => 'has been released (>0 = TRUE)',
-    'learned09' => 'has been learned (>0 = TRUE)',	
+    'learned09' => 'has been learned (>0 = TRUE)',
 
     // 10-other.php
     'tools10' => 'Tools',
@@ -1013,6 +1013,7 @@ return [
     'ja' => '日本語',
     'nl' => 'Nederlands',
     'pt_br' => 'Português',
+    'tr' => 'Türkçe',
     'dbconnecterror99' => '<p>Error: Database connection failed</p><p>It is possible that the database is overloaded or otherwise not running properly</p><p class="emphasise">Contact the system administrator if the problem persists</p>',
     'dbconnecterror99_plain' => 'Error: Database connection failed: it is possible that the database is overloaded or otherwise not running properly; contact the system administrator if the problem persists',
 ];

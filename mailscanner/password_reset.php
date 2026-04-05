@@ -31,8 +31,11 @@ if (USE_LDAP === true) {
     exit(__('pwdresetldap63'));
 }
 
-if (PHP_SAPI !== 'cli' && SSL_ONLY && (!empty($_SERVER['PHP_SELF']))) {
-    if ('on' === !$_SERVER['HTTPS']) {
+if (PHP_SAPI !== 'cli' && SSL_ONLY && !empty($_SERVER['PHP_SELF'])) {
+    // Is the connection secure?
+    $is_ssl = !empty($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] === '1');
+    // Force SSL with a redirect to https:// if not already using SSL
+    if (!$is_ssl) {
         header('Location: https://' . sanitizeInput($_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']));
         exit;
     }
@@ -294,7 +297,7 @@ if (defined('PWD_RESET') && PWD_RESET === true) {
             </div>
             <div class="border-rounded">
                 <h1><?php echo __('title63'); ?></h1>
-                <?php if (file_exists('conf.php')) {
+                <?php if (file_exists(__DIR__ . '/conf.php')) {
                     if ('' !== $fields) {
                         ?>
                         <form name="pwdresetform" class="pwdresetform" method="post" action="<?php echo sanitizeInput($_SERVER['PHP_SELF']); ?>" autocomplete="off">

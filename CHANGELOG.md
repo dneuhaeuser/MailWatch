@@ -2,6 +2,60 @@
 
 ## Unreleased
 
+## 1.2.25
+### Changed
+- Improve db_clean script performance for large databases
+
+### Fixed
+- Fix Message-ID extraction for RFC 5322 folded headers (#1305)
+- Fix fatal errors on PHP 8.4 (#1320)
+
+## 1.2.24
+### Added
+- Add support for new AV engine supported by MailScanner (avastd, eset, esetsefs, f-secure, f-prot, kaspersky, kse)
+- Allow foo@*.domain.ext in allow/block lists (#1316)
+
+### Changed
+- Update htmlpurifier library to 4.17.0
+- Avoid usage of the deprecated utf8_encode function in the viewpart
+- Better Linux OS recognition
+
+### Compatibility
+- The minimal PHP version is now 5.6.
+- Migrate MailScanner perl script to DBD:MariaDB
+- Update GeoIP to support authentication by account id+license key
+
+### Fixes
+- Fix release of text/x-mail messages (#1306)
+- Improve ISO-8859 charset conversion (#1309)
+
+## 1.2.23
+### Added
+- Support for handling the `uopz` extension to prevent the application from breaking due to disabled `exit` calls by `uopz`.
+
+## 1.2.22
+### Fixes
+- More relaxed regex for MaxMind geoip database download on HTTP/2 connection (#1289)
+- Fix report email (#1209)
+- Validate on new exim id format (#1294)
+- Permit + and = chars in email for sendmail (#1291)
+- Fix Message Listing on Mysql 8+ (#1295)
+- Fix MaxMind database download when curl extension is not available (#1297)
+- Update certificate data
+
+## 1.2.21
+### Improvements
+- Enhance quarantine display to regard all HIDE configuration options like quarantine_report does (#1268)
+- Hide snapd mount point (#1283)
+- Improve performance of mailwatch_milter_relay.php (#1266)
+- Added the ability to independently configure quarantine durations for spam and non-spam emails, allowing for greater flexibility and potential performance and storage improvements (#1281).
+
+### Fixes
+- Fix for sendmail relay script (#1276)
+- Fix syntax for implode function in quarantine.php (#1277)
+- Add support for new 40 chars MaxMind apikey format (#1286)
+- Fix download of MaxMind geoip database on HTTP/2 connection (#1287)
+
 ## 1.2.20
 ### Improvements
 - Better compatibility with MailScanner milter relay (#1267, #1271)

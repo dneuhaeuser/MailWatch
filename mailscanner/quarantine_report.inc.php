@@ -165,7 +165,7 @@ AND
     private static function get_report_sql($useToFilter = true)
     {
         $report_sql = "
-SELECT DISTINCT
+SELECT
 a.id AS id,
 DATE_FORMAT(timestamp,'" . str_replace('%', '%%', DATE_FORMAT) . ' <br/>' . str_replace('%', '%%', TIME_FORMAT) . "') AS datetime,
 a.timestamp AS timestamp,
@@ -262,7 +262,7 @@ ORDER BY a.date DESC, a.time DESC';
             ini_set('html_errors', 'off');
             ini_set('display_errors', 'on');
             ini_set('implicit_flush', 'false');
-            ini_set('error_reporting', E_ALL);
+            ini_set('error_reporting', (string) E_ALL);
         } else {
             require_once __DIR__ . '/lib/pear/Mail.php';
             require_once __DIR__ . '/lib/pear/Mail/smtp.php';
@@ -270,7 +270,7 @@ ORDER BY a.date DESC, a.time DESC';
         }
         date_default_timezone_set(TIME_ZONE);
         ini_set('memory_limit', '256M');
-        ini_set('max_execution_time', 0);
+        ini_set('max_execution_time', '0');
 
         if (count($usersForReport) > 0) {
             $userConditions = [];
@@ -370,8 +370,7 @@ ORDER BY a.date DESC, a.time DESC';
                     $sendResult = self::send_quarantine_email($email, $list_for, $quarantined);
                 }
                 unset($quarantined);
-            }
-            else {
+            } else {
                 foreach ($filters as $filter) {
                     if ('D' === $type) {
                         $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;
@@ -384,7 +383,7 @@ ORDER BY a.date DESC, a.time DESC';
                     self::dbg(" ==== Building list for $list_for");
                     $quarantined = self::return_quarantine_list_array($filter, $filter_domain);
                     self::dbg(' ==== Found ' . count($quarantined) . ' quarantined e-mails');
-				
+
                     if (true === $sendEmptyReports || count($quarantined) > 0) {
                         $sendResult = self::send_quarantine_email($email, $list_for, $quarantined);
                     }
@@ -406,8 +405,7 @@ ORDER BY a.date DESC, a.time DESC';
                 $quarantine_list[] = $list_for;
 
                 self::dbg(' ==== Found ' . count($quarantined[0]) . ' quarantined e-mails');
-            }
-            else {
+            } else {
                 foreach ($filters as $filter) {
                     if ('D' === $type) {
                         $filter_domain = preg_match('/(\S+)@(\S+)/', $filter, $split) ? $split[2] : $filter;

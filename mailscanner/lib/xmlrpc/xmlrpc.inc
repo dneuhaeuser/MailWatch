@@ -1043,7 +1043,7 @@ class xmlrpc_client
     }
 
     /**
-     * Send an xmlrpc request
+     * Send an XML-RPC request
      * @param mixed   $msg     The message object, or an array of messages for using multicall, or the complete xml representation of a request
      * @param integer $timeout Connection timeout, in seconds, If unspecified, a platform specific timeout will apply
      * @param string  $method  if left unspecified, the http protocol chosen during creation of the object will be used
@@ -1599,7 +1599,7 @@ class xmlrpc_client
 
     /**
      * Attempt to boxcar $msgs via system.multicall.
-     * Returns either an array of xmlrpcreponses, an xmlrpc error response
+     * Returns either an array of xmlrpcreponses, an XML-RPC error response
      * or false (when received response does not respect valid multicall syntax)
      * @access private
      */
@@ -2093,58 +2093,60 @@ class xmlrpcmsg
         }
         // be tolerant to line endings, and extra empty lines
         $ar = preg_split("/\r?\n/", trim(substr($data, 0, $pos)));
-        while (list(, $line) = @each($ar)) {
-            // take care of multi-line headers and cookies
-            $arr = explode(':', $line, 2);
-            if (count($arr) > 1) {
-                $header_name = strtolower(trim($arr[0]));
-                /// @todo some other headers (the ones that allow a CSV list of values)
-                /// do allow many values to be passed using multiple header lines.
-                /// We should add content to $GLOBALS['_xh']['headers'][$header_name]
-                /// instead of replacing it for those...
-                if ($header_name == 'set-cookie' || $header_name == 'set-cookie2') {
-                    if ($header_name == 'set-cookie2') {
-                        // version 2 cookies:
-                        // there could be many cookies on one line, comma separated
-                        $cookies = explode(',', $arr[1]);
-                    } else {
-                        $cookies = array($arr[1]);
-                    }
-                    foreach ($cookies as $cookie) {
-                        // glue together all received cookies, using a comma to separate them
-                        // (same as php does with getallheaders())
-                        if (isset($GLOBALS['_xh']['headers'][$header_name])) {
-                            $GLOBALS['_xh']['headers'][$header_name] .= ', ' . trim($cookie);
+        if (is_array($ar)) {
+            foreach ($ar as $line) {
+                // take care of multi-line headers and cookies
+                $arr = explode(':', $line, 2);
+                if (count($arr) > 1) {
+                    $header_name = strtolower(trim($arr[0]));
+                    /// @todo some other headers (the ones that allow a CSV list of values)
+                    /// do allow many values to be passed using multiple header lines.
+                    /// We should add content to $GLOBALS['_xh']['headers'][$header_name]
+                    /// instead of replacing it for those...
+                    if ($header_name === 'set-cookie' || $header_name === 'set-cookie2') {
+                        if ($header_name === 'set-cookie2') {
+                            // version 2 cookies:
+                            // there could be many cookies on one line, comma separated
+                            $cookies = explode(',', $arr[1]);
+                        } else {
+                            $cookies = array($arr[1]);
                         }
-                        else {
-                            $GLOBALS['_xh']['headers'][$header_name] = trim($cookie);
-                        }
-                        // parse cookie attributes, in case user wants to correctly honour them
-                        // feature creep: only allow rfc-compliant cookie attributes?
-                        // @todo support for server sending multiple time cookie with same name, but using different PATHs
-                        $cookie = explode(';', $cookie);
-                        foreach ($cookie as $pos => $val) {
-                            $val = explode('=', $val, 2);
-                            $tag = trim($val[0]);
-                            $val = trim(@$val[1]);
-                            /// @todo with version 1 cookies, we should strip leading and trailing " chars
-                            if ($pos == 0) {
-                                $cookiename = $tag;
-                                $GLOBALS['_xh']['cookies'][$tag] = array();
-                                $GLOBALS['_xh']['cookies'][$cookiename]['value'] = urldecode($val);
-                            } else {
-                                if ($tag != 'value') {
-                                    $GLOBALS['_xh']['cookies'][$cookiename][$tag] = $val;
+                        foreach ($cookies as $cookie) {
+                            // glue together all received cookies, using a comma to separate them
+                            // (same as php does with getallheaders())
+                            if (isset($GLOBALS['_xh']['headers'][$header_name])) {
+                                $GLOBALS['_xh']['headers'][$header_name] .= ', ' . trim($cookie);
+                            }
+                            else {
+                                $GLOBALS['_xh']['headers'][$header_name] = trim($cookie);
+                            }
+                            // parse cookie attributes, in case user wants to correctly honour them
+                            // feature creep: only allow rfc-compliant cookie attributes?
+                            // @todo support for server sending multiple time cookie with same name, but using different PATHs
+                            $cookie = explode(';', $cookie);
+                            foreach ($cookie as $pos => $val) {
+                                $val = explode('=', $val, 2);
+                                $tag = trim($val[0]);
+                                $val = trim(@$val[1]);
+                                /// @todo with version 1 cookies, we should strip leading and trailing " chars
+                                if ($pos == 0) {
+                                    $cookiename = $tag;
+                                    $GLOBALS['_xh']['cookies'][$tag] = array();
+                                    $GLOBALS['_xh']['cookies'][$cookiename]['value'] = urldecode($val);
+                                } else {
+                                    if ($tag != 'value') {
+                                        $GLOBALS['_xh']['cookies'][$cookiename][$tag] = $val;
+                                    }
                                 }
                             }
                         }
+                    } else {
+                        $GLOBALS['_xh']['headers'][$header_name] = trim($arr[1]);
                     }
-                } else {
-                    $GLOBALS['_xh']['headers'][$header_name] = trim($arr[1]);
+                } elseif (isset($header_name)) {
+                    ///	@todo version1 cookies might span multiple lines, thus breaking the parsing above
+                    $GLOBALS['_xh']['headers'][$header_name] .= ' ' . trim($line);
                 }
-            } elseif (isset($header_name)) {
-                ///	@todo version1 cookies might span multiple lines, thus breaking the parsing above
-                $GLOBALS['_xh']['headers'][$header_name] .= ' ' . trim($line);
             }
         }
 
@@ -2165,7 +2167,7 @@ class xmlrpcmsg
         // and dechunking + reinflating have been carried out
         if (!$headers_processed) {
             // Decode chunked encoding sent by http 1.1 servers
-            if (isset($GLOBALS['_xh']['headers']['transfer-encoding']) && $GLOBALS['_xh']['headers']['transfer-encoding'] == 'chunked') {
+            if (isset($GLOBALS['_xh']['headers']['transfer-encoding']) && $GLOBALS['_xh']['headers']['transfer-encoding'] === 'chunked') {
                 if (!$data = decode_chunked($data)) {
                     error_log('XML-RPC: ' . __METHOD__ . ': errors occurred when trying to rebuild the chunked data received from server');
                     $r = new xmlrpcresp(0, $GLOBALS['xmlrpcerr']['dechunk_fail'], $GLOBALS['xmlrpcstr']['dechunk_fail']);
@@ -2177,15 +2179,15 @@ class xmlrpcmsg
             // code shamelessly inspired from nusoap library by Dietrich Ayala
             if (isset($GLOBALS['_xh']['headers']['content-encoding'])) {
                 $GLOBALS['_xh']['headers']['content-encoding'] = str_replace('x-', '', $GLOBALS['_xh']['headers']['content-encoding']);
-                if ($GLOBALS['_xh']['headers']['content-encoding'] == 'deflate' || $GLOBALS['_xh']['headers']['content-encoding'] == 'gzip') {
+                if ($GLOBALS['_xh']['headers']['content-encoding'] === 'deflate' || $GLOBALS['_xh']['headers']['content-encoding'] === 'gzip') {
                     // if decoding works, use it. else assume data wasn't gzencoded
                     if (function_exists('gzinflate')) {
-                        if ($GLOBALS['_xh']['headers']['content-encoding'] == 'deflate' && $degzdata = @gzuncompress($data)) {
+                        if ($GLOBALS['_xh']['headers']['content-encoding'] === 'deflate' && $degzdata = @gzuncompress($data)) {
                             $data = $degzdata;
                             if ($this->debug) {
                                 print '<PRE>---INFLATED RESPONSE---[' . strlen($data) . " chars]---\n" . htmlentities($data) . "\n---END---</PRE>";
                             }
-                        } elseif ($GLOBALS['_xh']['headers']['content-encoding'] == 'gzip' && $degzdata = @gzinflate(substr($data, 10))) {
+                        } elseif ($GLOBALS['_xh']['headers']['content-encoding'] === 'gzip' && $degzdata = @gzinflate(substr($data, 10))) {
                             $data = $degzdata;
                             if ($this->debug) {
                                 print '<PRE>---INFLATED RESPONSE---[' . strlen($data) . " chars]---\n" . htmlentities($data) . "\n---END---</PRE>";
@@ -2206,7 +2208,7 @@ class xmlrpcmsg
 
         // real stupid hack to avoid PHP complaining about returning NULL by ref
         $r = null;
-        $r =& $r;
+//        $r =& $r;
         return $r;
     }
 
@@ -2225,7 +2227,7 @@ class xmlrpcmsg
             print "<PRE>---GOT---\n" . htmlentities($data) . "\n---END---\n</PRE>";
         }
 
-        if ($data == '') {
+        if ($data === '') {
             error_log('XML-RPC: ' . __METHOD__ . ': no response received from server.');
             $r = new xmlrpcresp(0, $GLOBALS['xmlrpcerr']['no_data'], $GLOBALS['xmlrpcstr']['no_data']);
             return $r;
@@ -2235,7 +2237,7 @@ class xmlrpcmsg
 
         $raw_data = $data;
         // parse the HTTP headers of the response, if present, and separate them from data
-        if (substr($data, 0, 4) == 'HTTP') {
+        if (strpos($data, 'HTTP') === 0) {
             $r =& $this->parseResponseHeaders($data, $headers_processed);
             if ($r) {
                 // failed processing of HTTP response headers
@@ -2271,7 +2273,7 @@ class xmlrpcmsg
         }
 
         // if user wants back raw xml, give it to him
-        if ($return_type == 'xml') {
+        if ($return_type === 'xml') {
             $r = new xmlrpcresp($data, 0, '', 'xml');
             $r->hdrs = $GLOBALS['_xh']['headers'];
             $r->_cookies = $GLOBALS['_xh']['cookies'];
@@ -2314,7 +2316,7 @@ class xmlrpcmsg
             xml_parser_set_option($parser, XML_OPTION_TARGET_ENCODING, $GLOBALS['xmlrpc_internalencoding']);
         }
 
-        if ($return_type == 'phpvals') {
+        if ($return_type === 'phpvals') {
             xml_set_element_handler($parser, 'xmlrpc_se', 'xmlrpc_ee_fast');
         } else {
             xml_set_element_handler($parser, 'xmlrpc_se', 'xmlrpc_ee');
@@ -2324,7 +2326,7 @@ class xmlrpcmsg
         xml_set_default_handler($parser, 'xmlrpc_dh');
 
         // first error check: xml not well formed
-        if (!xml_parse($parser, $data, count($data))) {
+        if (!xml_parse($parser, $data, $data !== '')) {
             // thanks to Peter Kocks <peter.kocks@baygate.com>
             if ((xml_get_current_line_number($parser)) == 1) {
                 $errstr = 'XML error at line 1, check URL';
@@ -2356,7 +2358,7 @@ class xmlrpcmsg
         }
         // third error check: parsing of the response has somehow gone boink.
         // NB: shall we omit this check, since we trust the parsing code?
-        elseif ($return_type == 'xmlrpcvals' && !is_object($GLOBALS['_xh']['value'])) {
+        elseif ($return_type === 'xmlrpcvals' && !is_object($GLOBALS['_xh']['value'])) {
             // something odd has happened
             // and it's time to generate a client side error
             // indicating something odd went on
@@ -2377,7 +2379,7 @@ class xmlrpcmsg
             if ($GLOBALS['_xh']['isf']) {
                 /// @todo we should test here if server sent an int and a string,
                 /// and/or coerce them into such...
-                if ($return_type == 'xmlrpcvals') {
+                if ($return_type === 'xmlrpcvals') {
                     $errno_v = $v->structmem('faultCode');
                     $errstr_v = $v->structmem('faultString');
                     $errno = $errno_v->scalarval();
@@ -2553,14 +2555,16 @@ class xmlrpcval
             $this->mytype = $GLOBALS['xmlrpcTypes']['struct'];
             $this->me['struct'] = $vals;
             return 1;
-        } elseif ($this->mytype == 3) {
+        }
+
+        if ($this->mytype == 3) {
             // we're adding to a struct here
             $this->me['struct'] = array_merge($this->me['struct'], $vals);
             return 1;
-        } else {
-            error_log('XML-RPC: ' . __METHOD__ . ': already initialized as a [' . $this->kindOf() . ']');
-            return 0;
         }
+
+        error_log('XML-RPC: ' . __METHOD__ . ': already initialized as a [' . $this->kindOf() . ']');
+        return 0;
     }
 
     // poor man's version of print_r ???
@@ -2569,8 +2573,8 @@ class xmlrpcval
     {
         foreach ($ar as $key => $val) {
             echo "$key => $val<br />";
-            if ($key == 'array') {
-                while (list($key2, $val2) = each($val)) {
+            if ($key === 'array' && is_array($val)) {
+                foreach ($val as $key2 => $val2) {
                     echo "-- $key2 => $val2<br />";
                 }
             }
@@ -2587,13 +2591,10 @@ class xmlrpcval
         switch ($this->mytype) {
             case 3:
                 return 'struct';
-                break;
             case 2:
                 return 'array';
-                break;
             case 1:
                 return 'scalar';
-                break;
             default:
                 return 'undef';
         }
@@ -2674,7 +2675,7 @@ class xmlrpcval
             case 2:
                 // array
                 $rs .= "<array>\n<data>\n";
-                for ($i = 0; $i < count($val); $i++) {
+                for ($i = 0, $iMax = count($val); $i < $iMax; $i++) {
                     //$rs.=$this->serializeval($val[$i]);
                     $rs .= $val[$i]->serialize($charset_encoding);
                 }
@@ -2698,7 +2699,9 @@ class xmlrpcval
         //if (is_object($o) && (get_class($o) == 'xmlrpcval' || is_subclass_of($o, 'xmlrpcval')))
         //{
         reset($this->me);
-        list($typ, $val) = each($this->me);
+        foreach ($this->me as $typ => $val) {
+            break;
+        }
         return '<value>' . $this->serializedata($typ, $val, $charset_encoding) . "</value>\n";
         //}
     }
@@ -2707,13 +2710,17 @@ class xmlrpcval
     public function serializeval($o)
     {
         // add check? slower, but helps to avoid recursion in serializing broken xmlrpcvals...
-        //if (is_object($o) && (get_class($o) == 'xmlrpcval' || is_subclass_of($o, 'xmlrpcval')))
-        //{
+        // if (is_object($o) && (get_class($o) == 'xmlrpcval' || is_subclass_of($o, 'xmlrpcval')))
+        // {
         $ar = $o->me;
-        reset($ar);
-        list($typ, $val) = each($ar);
+        reset($ar); // Reset the array pointer to the first element
+
+        // Get the first key and value from the array
+        $typ = key($ar);
+        $val = current($ar);
+
         return '<value>' . $this->serializedata($typ, $val) . "</value>\n";
-        //}
+        // }
     }
 
     /**
@@ -2756,7 +2763,15 @@ class xmlrpcval
      */
     public function structeach()
     {
-        return each($this->me['struct']);
+        // Check if the struct array is not empty and has a valid current element
+        if (!empty($this->me['struct']) && null !== key($this->me['struct'])) {
+            $key = key($this->me['struct']);
+            $value = current($this->me['struct']);
+            next($this->me['struct']); // Advance the pointer for the next call
+            return [$key, $value];
+        }
+        // Return false if the array is empty or the end is reached
+        return false;
     }
 
     // DEPRECATED! this code looks like it is very fragile and has not been fixed
@@ -2765,29 +2780,32 @@ class xmlrpcval
     {
         // UNSTABLE
         reset($this->me);
-        list($a, $b) = each($this->me);
+        $a = key($this->me);
+        $b = current($this->me);
+
         // contributed by I Sofer, 2001-03-24
         // add support for nested arrays to scalarval
         // i've created a new method here, so as to
         // preserve back compatibility
 
         if (is_array($b)) {
-            @reset($b);
-            while (list($id, $cont) = @each($b)) {
-                $b[$id] = $cont->scalarval();
+            foreach ($b as $id => $cont) {
+                if (is_object($cont) && method_exists($cont, 'scalarval')) {
+                    $b[$id] = $cont->scalarval();
+                }
             }
         }
 
         // add support for structures directly encoding php objects
         if (is_object($b)) {
             $t = get_object_vars($b);
-            @reset($t);
-            while (list($id, $cont) = @each($t)) {
-                $t[$id] = $cont->scalarval();
+            foreach ($t as $id => $cont) {
+                if (is_object($cont) && method_exists($cont, 'scalarval')) {
+                    $t[$id] = $cont->scalarval();
+                }
             }
-            @reset($t);
-            while (list($id, $cont) = @each($t)) {
-                @$b->$id = $cont;
+            foreach ($t as $id => $cont) {
+                $b->$id = $cont;
             }
         }
         // end contrib
@@ -2802,8 +2820,8 @@ class xmlrpcval
     public function scalarval()
     {
         reset($this->me);
-        list(, $b) = each($this->me);
-        return $b;
+
+        return current($this->me);
     }
 
     /**
@@ -2815,10 +2833,12 @@ class xmlrpcval
     public function scalartyp()
     {
         reset($this->me);
-        list($a,) = each($this->me);
+        $a = key($this->me);
+
         if ($a == $GLOBALS['xmlrpcI4']) {
             $a = $GLOBALS['xmlrpcInt'];
         }
+
         return $a;
     }
 
@@ -2910,7 +2930,7 @@ function iso8601_decode($idate, $utc = 0)
 }
 
 /**
- * Takes an xmlrpc value in PHP xmlrpcval object format and translates it into native PHP types.
+ * Takes an XML-RPC value in PHP xmlrpcval object format and translates it into native PHP types.
  *
  * Works with xmlrpc message objects as input, too.
  *
@@ -2936,7 +2956,9 @@ function php_xmlrpc_decode($xmlrpc_val, $options = array())
         case 'scalar':
             if (in_array('extension_api', $options)) {
                 reset($xmlrpc_val->me);
-                list($typ, $val) = each($xmlrpc_val->me);
+                $typ = key($xmlrpc_val->me);
+                $val = current($xmlrpc_val->me);
+
                 switch ($typ) {
                     case 'dateTime.iso8601':
                         $xmlrpc_val->scalar = $val;
@@ -2952,18 +2974,20 @@ function php_xmlrpc_decode($xmlrpc_val, $options = array())
                 }
             }
             if (in_array('dates_as_objects', $options) && $xmlrpc_val->scalartyp() == 'dateTime.iso8601') {
-                // we return a Datetime object instead of a string
-                // since now the constructor of xmlrpcval accepts safely strings, ints and datetimes,
+                // We return a Datetime object instead of a string
+                // Since now the constructor of xmlrpcval accepts safely strings, ints and datetimes,
                 // we cater to all 3 cases here
                 $out = $xmlrpc_val->scalarval();
                 if (is_string($out)) {
                     $out = strtotime($out);
                 }
                 if (is_int($out)) {
-                    $result = new Datetime();
+                    $result = new \DateTime();
                     $result->setTimestamp($out);
                     return $result;
-                } elseif ($out instanceof \Datetime) {
+                }
+
+                if ($out instanceof \DateTime) {
                     return $out;
                 }
             }
@@ -2979,18 +3003,18 @@ function php_xmlrpc_decode($xmlrpc_val, $options = array())
             $xmlrpc_val->structreset();
             // If user said so, try to rebuild php objects for specific struct vals.
             /// @todo should we raise a warning for class not found?
-            // shall we check for proper subclass of xmlrpcval instead of
+            // Shall we check for proper subclass of xmlrpcval instead of
             // presence of _php_class to detect what we can do?
             if (in_array('decode_php_objs', $options) && $xmlrpc_val->_php_class != ''
                 && class_exists($xmlrpc_val->_php_class)) {
-                $obj = @new $xmlrpc_val->_php_class;
-                while (list($key, $value) = $xmlrpc_val->structeach()) {
+                $obj = new $xmlrpc_val->_php_class;
+                foreach ($xmlrpc_val->me['struct'] as $key => $value) {
                     $obj->$key = php_xmlrpc_decode($value, $options);
                 }
                 return $obj;
             } else {
                 $arr = array();
-                while (list($key, $value) = $xmlrpc_val->structeach()) {
+                foreach ($xmlrpc_val->me['struct'] as $key => $value) {
                     $arr[$key] = php_xmlrpc_decode($value, $options);
                 }
                 return $arr;
@@ -3084,8 +3108,8 @@ function php_xmlrpc_encode($php_val, $options = array())
                 $xmlrpc_val = new xmlrpcval($php_val->format('Ymd\TH:i:s'), $GLOBALS['xmlrpcStruct']);
             } else {
                 $arr = array();
-                reset($php_val);
-                while (list($k, $v) = each($php_val)) {
+
+                foreach ($php_val as $k => $v) {
                     $arr[$k] = php_xmlrpc_encode($v, $options);
                 }
                 $xmlrpc_val = new xmlrpcval($arr, $GLOBALS['xmlrpcStruct']);
@@ -3111,6 +3135,7 @@ function php_xmlrpc_encode($php_val, $options = array())
             } else {
                 $xmlrpc_val = new xmlrpcval();
             }
+            break;
         // catch "user function", "unknown type"
         default:
             // giancarlo pinerolo <ping@alt.it>
@@ -3154,7 +3179,7 @@ function php_xmlrpc_decode_xml($xml_val, $options = array())
     xml_set_element_handler($parser, 'xmlrpc_se_any', 'xmlrpc_ee');
     xml_set_character_data_handler($parser, 'xmlrpc_cd');
     xml_set_default_handler($parser, 'xmlrpc_dh');
-    if (!xml_parse($parser, $xml_val, 1)) {
+    if (!xml_parse($parser, $xml_val, true)) {
         $errstr = sprintf('XML error: %s at line %d, column %d',
             xml_error_string(xml_get_error_code($parser)),
             xml_get_current_line_number($parser), xml_get_current_column_number($parser));
@@ -3181,7 +3206,7 @@ function php_xmlrpc_decode_xml($xml_val, $options = array())
             return $r;
         case 'methodcall':
             $m = new xmlrpcmsg($GLOBALS['_xh']['method']);
-            for ($i = 0; $i < count($GLOBALS['_xh']['params']); $i++) {
+            for ($i = 0, $iMax = count($GLOBALS['_xh']['params']); $i < $iMax; $i++) {
                 $m->addParam($GLOBALS['_xh']['params'][$i]);
             }
             return $m;
@@ -3216,7 +3241,7 @@ function decode_chunked($buffer)
         $chunkend = strpos($buffer, "\r\n", $chunkstart + $chunk_size);
 
         // just in case we got a broken connection
-        if ($chunkend == false) {
+        if ($chunkend === false) {
             $chunk = substr($buffer, $chunkstart);
             // append chunk-data to entity-body
             $new .= $chunk;
@@ -3233,10 +3258,11 @@ function decode_chunked($buffer)
         // read chunk-size and crlf
         $chunkstart = $chunkend + 2;
 
-        $chunkend = strpos($buffer, "\r\n", $chunkstart) + 2;
-        if ($chunkend == false) {
+        $pos = strpos($buffer, "\r\n", $chunkstart);
+        if ($pos === false) {
             break; //just in case we got a broken connection
         }
+        $chunkend = $pos + 2;
         $temp = substr($buffer, $chunkstart, $chunkend - $chunkstart);
         $chunk_size = hexdec(trim($temp));
         $chunkstart = $chunkend;
@@ -3289,9 +3315,13 @@ function guess_encoding($httpheader = '', $xmlchunk = '', $encoding_prefs = null
     /// @todo implement check for first bytes of string even without a BOM? (It sure looks harder than for cases WITH a BOM)
     if (preg_match('/^(\x00\x00\xFE\xFF|\xFF\xFE\x00\x00|\x00\x00\xFF\xFE|\xFE\xFF\x00\x00)/', $xmlchunk)) {
         return 'UCS-4';
-    } elseif (preg_match('/^(\xFE\xFF|\xFF\xFE)/', $xmlchunk)) {
+    }
+
+    if (preg_match('/^(\xFE\xFF|\xFF\xFE)/', $xmlchunk)) {
         return 'UTF-16';
-    } elseif (preg_match('/^(\xEF\xBB\xBF)/', $xmlchunk)) {
+    }
+
+    if (preg_match('/^(\xEF\xBB\xBF)/', $xmlchunk)) {
         return 'UTF-8';
     }
 
@@ -3315,17 +3345,17 @@ function guess_encoding($httpheader = '', $xmlchunk = '', $encoding_prefs = null
         }
         // NB: mb_detect likes to call it ascii, xml parser likes to call it US_ASCII...
         // IANA also likes better US-ASCII, so go with it
-        if ($enc == 'ASCII') {
+        if ($enc === 'ASCII') {
             $enc = 'US-' . $enc;
         }
         return $enc;
-    } else {
-        // no encoding specified: as per HTTP1.1 assume it is iso-8859-1?
-        // Both RFC 2616 (HTTP 1.1) and 1945 (HTTP 1.0) clearly state that for text/xxx content types
-        // this should be the standard. And we should be getting text/xml as request and response.
-        // BUT we have to be backward compatible with the lib, which always used UTF-8 as default...
-        return $GLOBALS['xmlrpc_defencoding'];
     }
+
+    // no encoding specified: as per HTTP1.1 assume it is iso-8859-1?
+    // Both RFC 2616 (HTTP 1.1) and 1945 (HTTP 1.0) clearly state that for text/xxx content types
+    // this should be the standard. And we should be getting text/xml as request and response.
+    // BUT we have to be backward compatible with the lib, which always used UTF-8 as default...
+    return $GLOBALS['xmlrpc_defencoding'];
 }
 
 /**
@@ -3350,15 +3380,14 @@ function is_valid_charset($encoding, $validlist)
     if (@in_array(strtoupper($encoding), $validlist)) {
         return true;
     }
-    else {
-        if (array_key_exists($encoding, $charset_supersets)) {
-            foreach ($validlist as $allowed) {
-                if (in_array($allowed, $charset_supersets[$encoding])) {
-                    return true;
-                }
+
+    if (array_key_exists($encoding, $charset_supersets)) {
+        foreach ($validlist as $allowed) {
+            if (in_array($allowed, $charset_supersets[$encoding])) {
+                return true;
             }
         }
-        return false;
     }
+    return false;
 }
 

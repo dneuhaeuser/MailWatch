@@ -888,6 +888,20 @@ if ($link) {
 
     // check for missing indexes
     $indexes = array(
+        'audit_log' => array(
+            'audit_log_timestamp' => array(
+                'fields' => '(`timestamp`)',
+                'type' => 'KEY',
+                'minMysqlVersion' => '50100'
+            ),
+        ),
+        'mtalog_ids' => array(
+            'mtalog_ids_smtp_id' => array(
+                'fields' => '(`smtp_id`)',
+                'type' => 'KEY',
+                'minMysqlVersion' => '50100'
+            ),
+        ),
         'maillog' => array(
             'maillog_datetime_idx' => array(
                 'fields' => '(`date`,`time`)',
@@ -1050,11 +1064,11 @@ if (stringEndsWith(MAILWATCH_HOSTURL, '/')) {
 
 echo PHP_EOL;
 //Check minimal PHP version
-echo pad(' - Checking minimal PHP version >= 5.4');
-if (PHP_VERSION_ID >= 50400) {
+echo pad(' - Checking minimal PHP version >= 5.6');
+if (PHP_VERSION_ID >= 50600) {
     echo color(' PHP version OK', 'lightgreen') . PHP_EOL;
 } else {
-    echo color(' WARNING: PHP version < 5.4 not fully supported (GeoLite2 not working)', 'yellow') . PHP_EOL;
+    echo color(' WARNING: PHP version < 5.6 not supported (GeoLite2 not working)', 'yellow') . PHP_EOL;
 }
 
 echo PHP_EOL;

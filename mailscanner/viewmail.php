@@ -27,7 +27,7 @@
 
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/lib/pear/Mail/mimeDecode.php';
-ini_set('memory_limit', MEMORY_LIMIT);
+ini_set('memory_limit', (string)MEMORY_LIMIT);
 
 require __DIR__ . '/login.function.php';
 
@@ -182,9 +182,9 @@ foreach ($header_fields as $field) {
 }
 
 if (
-    ('0' === $message->virusinfected && '0' === $message->nameinfected && '0' === $message->otherinfected) ||
-    'A' === $_SESSION['user_type'] ||
-    (defined('DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS') && true === DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS && 'D' === $_SESSION['user_type'])
+    ('0' === $message->virusinfected && '0' === $message->nameinfected && '0' === $message->otherinfected)
+    || 'A' === $_SESSION['user_type']
+    || (defined('DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS') && true === DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS && 'D' === $_SESSION['user_type'])
 ) {
     lazy(
         __('actions06'),
@@ -211,9 +211,7 @@ foreach ($mime_struct as $key => $part) {
             echo ' </tr>' . "\n";
             break;
         case 'message/rfc822':
-            break;
         case 'multipart/related':
-            break;
         case 'multipart/alternative':
             break;
         default:
@@ -231,7 +229,7 @@ foreach ($mime_struct as $key => $part) {
                 }
             } else {
                 $filename = __('nonameattachment06');
-                if ($type = 'message/partial' && property_exists($part, 'ctype_parameters')) {
+                if ('message/partial' === $type && property_exists($part, 'ctype_parameters')) {
                     $filename = isset($part->ctype_parameters['id']) ? $part->ctype_parameters['id'] : 'partialMessage';
                     if (isset($part->ctype_parameters['number'])) {
                         $filename .= ' - Part ' . $part->ctype_parameters['number'];
@@ -245,9 +243,9 @@ foreach ($mime_struct as $key => $part) {
             }
 
             if (
-                ('0' === $message->virusinfected && '0' === $message->nameinfected && '0' === $message->otherinfected) ||
-                'A' === $_SESSION['user_type'] ||
-                (defined('DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS') && true === DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS && 'D' === $_SESSION['user_type'])
+                ('0' === $message->virusinfected && '0' === $message->nameinfected && '0' === $message->otherinfected)
+                || 'A' === $_SESSION['user_type']
+                || (defined('DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS') && true === DOMAINADMIN_CAN_SEE_DANGEROUS_CONTENTS && 'D' === $_SESSION['user_type'])
             ) {
                 echo ' <a href="viewpart.php?token=' . $_SESSION['token'] . '&amp;id=' . $message_id . '&amp;part=' . $part->mime_id . '">Download</a>';
             }

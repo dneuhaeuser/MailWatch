@@ -305,7 +305,7 @@ function Show_Form($status_msg, $short_filename, $file_contents, $CONF_ruleset_k
         // all, but w/the new way i'm writing the rules (w/the border),
         // each one is in a seperate table, and they don't line up
         // w/out the select box.
-        if (strtolower('default' === $rule_part['1target'])) {
+        if ('default' === strtolower($rule_part['1target'])) {
             $rule_action_select_html .= ' disabled';
         }
 
@@ -532,8 +532,8 @@ function Process_Form($file_contents, $short_filename)
     $previous_line = '';
     $first_line = true;
     foreach (preg_split("/\n/", $file_contents) as $line) {
-        if ('' === $line ||
-             ('#' === substr($line, 0, 1) && !preg_match('/#DISABLED#/', $line))
+        if ('' === $line
+             || ('#' === substr($line, 0, 1) && !preg_match('/#DISABLED#/', $line))
         ) {
             if (!$first_line) {
                 $new_file[] = $previous_line . "\n";
@@ -712,7 +712,7 @@ function Process_Form($file_contents, $short_filename)
     list($bytes, $status_msg) = Write_File($filename, $new_file);
 
     // Schedule a reload of mailscanner's stuff. We can't do an immediate
-    // reload w/out giving the apache user rights to run the MailScanner
+    // reload w/out giving the webserver user rights to run the MailScanner
     // startup/reload script, and that could be a bad idea.
     // So instead, I schedule a reload with the msre_reload.cron cron job
     $status_msg .= '<span class="status">' . "\n";
@@ -722,6 +722,7 @@ function Process_Form($file_contents, $short_filename)
     if (!$fh) {
         $status_msg .= '<span class="error">' . __('error0155') . '</span><br>' . "\n";
     } else {
+        fclose($fh);
         $status_msg .= __('ok55') . '<br>' . "\n" . sprintf(__('message55'), MSRE_RELOAD_INTERVAL) . '<br>' . "\n";
     }
     $status_msg .= "</span>\n";

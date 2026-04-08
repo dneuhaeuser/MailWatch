@@ -484,7 +484,7 @@ sub MailWatchLogging {
 
     # Normalize and extract the Message-ID value
     if ($messageidbuffer =~ /<([^>]+)>/) {
-        $messageid = $1;
+        $messageid = $&;
         $messageid =~ s/^\s+|\s+$//g;
 
         # Uncomment the following line when debugging MailWatch.pm
